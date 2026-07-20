@@ -30,6 +30,38 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* Force dark mode — override tout thème light */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"], .main, .stApp {
+        background-color: #0A0E1A !important;
+        color: #E8EAF0 !important;
+    }
+    [data-testid="stHeader"] { background: #0A0E1A !important; }
+    .stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown div {
+        color: #E8EAF0;
+    }
+    /* Inputs, selects, sliders */
+    .stSelectbox label, .stSlider label { color: #7C8AA5 !important; }
+    [data-baseweb="select"] > div, [data-baseweb="input"] > div {
+        background-color: #141B2D !important;
+        border-color: #232D48 !important;
+    }
+    [data-baseweb="select"] * { color: #E8EAF0 !important; }
+    /* Slider track */
+    .stSlider [data-baseweb="slider"] > div > div { background: #232D48 !important; }
+    /* Dataframe */
+    [data-testid="stDataFrame"] { background: #141B2D !important; }
+    [data-testid="stDataFrame"] * { color: #E8EAF0 !important; }
+    /* Download button */
+    .stDownloadButton button {
+        background: #141B2D !important;
+        color: #E8EAF0 !important;
+        border: 1px solid #232D48 !important;
+    }
+    .stDownloadButton button:hover {
+        border-color: #F4C430 !important;
+        color: #F4C430 !important;
+    }
+
     /* Padding global réduit pour mobile */
     .block-container {
         padding-top: 1.5rem !important;
@@ -215,7 +247,7 @@ hero_html = (
     '<div>'
     f'<div class="hero-eyebrow">Coupe du Monde 2026 · {LEAGUE_NAME}</div>'
     '<h1 class="hero-title">Mon Petit Portefeuille</h1>'
-    "<p class='hero-subtitle'>Combien de thune t'aurais fait si tu avais parié pour de vrai tes pronos MPP ?</p>"
+    "<p class="hero-subtitle">Combien de thune t'aurais fait si tu avais parié pour de vrai tes pronos MPP ?</p>"
     '</div>'
 )
 st.markdown(hero_html, unsafe_allow_html=True)
@@ -230,7 +262,7 @@ with col_bm:
         "Bookmaker",
         options=BOOKMAKERS,
         format_func=lambda x: BOOKMAKER_LABELS[x],
-        index=0,  # Meilleur cote par défaut
+        index=0,  # Meilleur côte par défaut
     )
 with col_stake:
     stake = st.slider("Mise par pari (€)", min_value=1, max_value=100, value=10, step=1)
