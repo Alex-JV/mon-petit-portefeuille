@@ -215,7 +215,7 @@ hero_html = (
     '<div>'
     f'<div class="hero-eyebrow">Coupe du Monde 2026 · {LEAGUE_NAME}</div>'
     '<h1 class="hero-title">Mon Petit Portefeuille</h1>'
-    '<p class="hero-subtitle">Et si tu avais parié pour de vrai tes pronos MPP ?</p>'
+    '<p class="hero-subtitle">Combien de thune t'aurais fait si tu avais parié pour de vrai tes pronos MPP ?</p>'
     '</div>'
 )
 st.markdown(hero_html, unsafe_allow_html=True)
