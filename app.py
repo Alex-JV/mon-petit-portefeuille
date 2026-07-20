@@ -230,7 +230,7 @@ with col_bm:
         "Bookmaker",
         options=BOOKMAKERS,
         format_func=lambda x: BOOKMAKER_LABELS[x],
-        index=1,  # Betclic par défaut
+        index=0,  # Meilleur cote par défaut
     )
 with col_stake:
     stake = st.slider("Mise par pari (€)", min_value=1, max_value=100, value=10, step=1)
