@@ -1,21 +1,18 @@
 """
 Mon Petit Portefeuille — Classement au portefeuille de la ligue MPP.
 
-Architecture : au premier chargement, l'app fait TOUS les appels (4 bookmakers × N joueurs)
-avec une mise fixée à 1€. Ensuite le slider de mise multiplie les résultats côté client
-et le sélecteur de bookmaker switche entre les datasets pré-calculés. Zéro re-fetch.
+Les données sont pré-calculées dans data.py (à générer avec fetch_data.py).
+L'app ne fait aucun appel réseau : tout tourne en local, rendu instantané.
 """
 from __future__ import annotations
 
 import io
-import json
-import time
-from urllib import request, error
 
 import pandas as pd
 import streamlit as st
 
-API_URL = "https://mes-profits-pronos.vercel.app/api/calculate"
+from data import DATA, LEAGUE, LEAGUE_NAME, GENERATED_AT
+
 BOOKMAKERS = ["best", "betclic", "unibet", "winamax"]
 BOOKMAKER_LABELS = {
     "best": "🏆 Meilleure cote",
@@ -23,26 +20,6 @@ BOOKMAKER_LABELS = {
     "unibet": "Unibet",
     "winamax": "Winamax",
 }
-DELAY_SEC = 0.1
-
-# ─── Ligue par défaut : "Coupe du Mao (à mao)" ────────────────────────────────
-DEFAULT_LEAGUE_NAME = "Coupe du Mao (à mao)"
-DEFAULT_LEAGUE = [
-    ("Adedadz",          "Adélaïde",  1,  4811),
-    ("AlexRougier",      "Alexandre", 2,  4629),
-    ("Sir_Chatonne",     "Alexandre", 3,  4329),
-    ("K-Dab",            "Karim",     4,  4324),
-    ("M9rgan",           "Morgan",    5,  4079),
-    ("GOAT#UEBF1WEA",    "Gilian",    6,  3922),
-    ("Foz",              "Clément",   7,  3920),
-    ("CedreLePoulpe",    "Cedric",    8,  3805),
-    ("Merwi",            "Marie",     9,  3713),
-    ("Jean-Porc-Jajo",   "Jade",      10, 3711),
-    ("HugBagr",          "Hug",       11, 3650),
-    ("BRANDAO_DOBRAZIL", "Samba",     12, 3394),
-    ("Pascalou_",        "Thomas",    13, 1556),
-]
-
 
 # ─── Setup page ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -70,111 +47,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
-# ─── Fetching (mise fixée à 1€, tout est linéaire) ────────────────────────────
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_at_1eur(username: str, bookmaker: str) -> dict | None:
-    body = json.dumps({"username": username, "bookmaker": bookmaker, "stake": 1}).encode()
-    req = request.Request(
-        API_URL, data=body,
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
-        method="POST",
-    )
-    try:
-        with request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())
-    except (error.HTTPError, error.URLError, TimeoutError, json.JSONDecodeError):
-        return None
-
-
-def load_all_data(usernames: list) -> dict:
-    """Retourne {bookmaker: {username: data_1eur}}. Affiche une progress bar."""
-    result: dict = {bm: {} for bm in BOOKMAKERS}
-    failed: list = []
-    total = len(usernames) * len(BOOKMAKERS)
-    done = 0
-    progress = st.progress(0.0, text="Chargement des données…")
-
-    for u in usernames:
-        for bm in BOOKMAKERS:
-            done += 1
-            progress.progress(done / total, text=f"[{done}/{total}]  {u}  ·  {bm}")
-            data = fetch_at_1eur(u, bm)
-            if data:
-                result[bm][u] = data
-            else:
-                failed.append(f"{u} ({bm})")
-            time.sleep(DELAY_SEC)
-
-    progress.empty()
-    return {"data": result, "failed": failed}
-
-
-def parse_input(raw: str):
-    raw = raw.strip()
-    if not raw:
-        return [], {}
-
-    if raw.startswith("{") or raw.startswith("["):
-        try:
-            data = json.loads(raw)
-            standings = data.get("standings") if isinstance(data, dict) else data
-            if isinstance(standings, list) and standings and "user" in standings[0]:
-                usernames, mpp = [], {}
-                for s in standings:
-                    u = s["user"].get("username")
-                    if not u:
-                        continue
-                    usernames.append(u)
-                    mpp[u] = {
-                        "firstname": (s["user"].get("firstName") or "").strip(),
-                        "mpp_rank": s.get("ranking", {}).get("rank"),
-                        "mpp_points": s.get("ranking", {}).get("points"),
-                    }
-                return usernames, mpp
-        except json.JSONDecodeError:
-            pass
-
-    seen, usernames = set(), []
-    for line in raw.split("\n"):
-        u = line.strip()
-        if u and u not in seen:
-            usernames.append(u)
-            seen.add(u)
-    return usernames, {}
-
-
 # ─── Header ───────────────────────────────────────────────────────────────────
-st.markdown('<span class="badge">Coupe du Monde 2026</span>', unsafe_allow_html=True)
+st.markdown(f'<span class="badge">Coupe du Monde 2026 · {LEAGUE_NAME}</span>', unsafe_allow_html=True)
 st.title("Classement au portefeuille")
 st.caption(
     "Combien chaque joueur aurait gagné en pariant ses pronostics MPP pour de vrai. "
     "Données via [mes-profits-pronos.vercel.app](https://mes-profits-pronos.vercel.app) d'Arthur Labbaye."
 )
 
-# ─── Sidebar ──────────────────────────────────────────────────────────────────
+# ─── Sidebar (uniquement les 2 leviers live) ──────────────────────────────────
+mpp_data = {u: {"firstname": fn, "mpp_rank": r, "mpp_points": p} for u, fn, r, p in LEAGUE}
+
 with st.sidebar:
-    st.header("👥 Ligue")
-    league_mode = st.radio(
-        "Ligue",
-        options=[DEFAULT_LEAGUE_NAME, "Autre ligue"],
-        index=0,
-        label_visibility="collapsed",
-    )
-    if league_mode == "Autre ligue":
-        st.caption("Colle une liste de pseudos (un par ligne) ou le JSON MPP.")
-        custom_input = st.text_area(
-            "Pseudos ou JSON",
-            height=180,
-            placeholder="pseudo1\npseudo2\n...",
-            label_visibility="collapsed",
-            key="custom_input",
-        )
-    else:
-        custom_input = ""
-
-    st.divider()
-
     st.header("⚙️ Paramètres")
     bookmaker = st.selectbox(
         "Bookmaker",
@@ -184,44 +68,11 @@ with st.sidebar:
     )
     stake = st.slider("Mise par pari (€)", min_value=1, max_value=100, value=10, step=1)
 
-# ─── Résolution ligue ─────────────────────────────────────────────────────────
-if league_mode == DEFAULT_LEAGUE_NAME:
-    usernames = [row[0] for row in DEFAULT_LEAGUE]
-    mpp_data = {row[0]: {"firstname": row[1], "mpp_rank": row[2], "mpp_points": row[3]}
-                for row in DEFAULT_LEAGUE}
-    league_key = f"default:{len(usernames)}"
-else:
-    usernames, mpp_data = parse_input(custom_input)
-    league_key = f"custom:{','.join(usernames)}"
+    st.divider()
+    st.caption(f"Données figées du {GENERATED_AT}")
 
-if not usernames:
-    st.info("👈 Colle une liste de pseudos ou le JSON MPP dans la sidebar pour commencer.")
-    st.stop()
-
-# ─── Chargement (une fois par ligue) ──────────────────────────────────────────
-if st.session_state.get("league_key") != league_key:
-    with st.status(f"Chargement de {len(usernames)} joueurs × {len(BOOKMAKERS)} bookmakers…",
-                   expanded=False) as status:
-        loaded = load_all_data(usernames)
-        st.session_state.league_data = loaded["data"]
-        st.session_state.league_failed = loaded["failed"]
-        st.session_state.league_key = league_key
-        status.update(label=f"✓ Données chargées ({len(usernames)*len(BOOKMAKERS)} requêtes)",
-                      state="complete", expanded=False)
-
-all_data = st.session_state.league_data
-failed = st.session_state.league_failed
-
-if failed:
-    with st.expander(f"⚠️ {len(failed)} appel(s) échoué(s)"):
-        st.write(", ".join(failed))
-
-# ─── Build display avec bookmaker + stake courants ────────────────────────────
-current_data = all_data[bookmaker]
-if not current_data:
-    st.error(f"Aucune donnée pour le bookmaker {bookmaker}.")
-    st.stop()
-
+# ─── Construction des lignes ──────────────────────────────────────────────────
+current_data = DATA[bookmaker]
 rows = []
 for u, d in current_data.items():
     info = mpp_data.get(u, {})
@@ -230,10 +81,10 @@ for u, d in current_data.items():
         "prenom": info.get("firstname", ""),
         "mpp_rank": info.get("mpp_rank"),
         "mpp_points": info.get("mpp_points"),
-        # Multiplication linéaire par la mise
+        # Linéaire en la mise
         "profit": d["profit"] * stake,
         "total_stake": d["totalStake"] * stake,
-        # Ces valeurs sont indépendantes de la mise
+        # Indépendant de la mise
         "roi": d["roi"],
         "wins": d["wins"],
         "bets": d["bets"],
@@ -346,7 +197,7 @@ with st.expander("💡 Insights", expanded=True):
 with st.expander("📈 Comparer les 4 bookmakers"):
     comp_rows = []
     for bm in BOOKMAKERS:
-        bm_data = all_data[bm]
+        bm_data = DATA[bm]
         if not bm_data:
             continue
         total = sum(d["profit"] * stake for d in bm_data.values())
@@ -379,6 +230,6 @@ st.download_button(
 # ─── Footer ───────────────────────────────────────────────────────────────────
 st.divider()
 st.caption(
-    "Basé sur [Mes Profits Pronos](https://mes-profits-pronos.vercel.app) d'Arthur Labbaye. "
-    "Cotes historiques via OddsPortal. Données mises en cache 1h."
+    f"Basé sur [Mes Profits Pronos](https://mes-profits-pronos.vercel.app) d'Arthur Labbaye. "
+    f"Cotes historiques via OddsPortal. Données figées du {GENERATED_AT}."
 )
