@@ -52,7 +52,7 @@ st.markdown(f'<span class="badge">Coupe du Monde 2026 · {LEAGUE_NAME}</span>', 
 st.title("Classement au portefeuille")
 st.caption(
     "Combien chaque joueur aurait gagné en pariant ses pronostics MPP pour de vrai. "
-
+)
 # ─── Sidebar (uniquement les 2 leviers live) ──────────────────────────────────
 mpp_data = {u: {"firstname": fn, "mpp_rank": r, "mpp_points": p} for u, fn, r, p in LEAGUE}
 
