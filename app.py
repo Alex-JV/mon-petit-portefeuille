@@ -1,8 +1,7 @@
 """
 Mon Petit Portefeuille — Classement au portefeuille de la ligue MPP.
 
-Les données sont pré-calculées dans data.py (à générer avec fetch_data.py).
-L'app ne fait aucun appel réseau : tout tourne en local, rendu instantané.
+Données figées via fetch_data.py. Zéro appel réseau à l'exécution.
 """
 from __future__ import annotations
 
@@ -25,35 +24,204 @@ BOOKMAKER_LABELS = {
 st.set_page_config(
     page_title="Mon Petit Portefeuille",
     page_icon="⚽",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    layout="centered",  # meilleur rendu mobile qu'en wide
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown("""
 <style>
-    [data-testid="stMetricValue"] { font-size: 26px; font-weight: 700; }
-    h1 { letter-spacing: -0.02em; }
-    .badge {
+    /* Padding global réduit pour mobile */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 3rem !important;
+        max-width: 1000px;
+    }
+
+    /* HERO */
+    .hero-eyebrow {
         display: inline-block;
-        padding: 4px 10px;
+        padding: 5px 12px;
         background: rgba(244, 196, 48, 0.15);
         color: #F4C430;
         border-radius: 6px;
-        font-size: 12px;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        font-family: 'JetBrains Mono', monospace;
+        margin-bottom: 12px;
+    }
+    .hero-title {
+        font-size: clamp(2.2rem, 8vw, 3.5rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+        margin: 0 0 12px 0;
+        background: linear-gradient(135deg, #FFFFFF 0%, #A8B0C7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .hero-subtitle {
+        font-size: clamp(1.1rem, 4vw, 1.5rem);
+        color: #F4C430;
+        font-weight: 500;
+        margin: 0 0 8px 0;
+        line-height: 1.3;
+    }
+    .hero-caption {
+        color: #7C8AA5;
+        font-size: 0.9rem;
+    }
+
+    /* METRICS : plus compactes sur mobile */
+    [data-testid="stMetricValue"] {
+        font-size: clamp(20px, 5vw, 26px) !important;
+        font-weight: 700;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.8rem !important;
+        color: #7C8AA5 !important;
+    }
+    [data-testid="stMetric"] {
+        background: rgba(20, 27, 45, 0.6);
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(35, 45, 72, 0.6);
+    }
+
+    /* Podium : cards plus élégantes */
+    .podium-card {
+        background: linear-gradient(135deg, #141B2D 0%, #1A2237 100%);
+        border: 1px solid #232D48;
+        border-radius: 12px;
+        padding: 16px;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+    .podium-card.gold { border-color: #F4C430; box-shadow: 0 0 20px rgba(244,196,48,0.15); }
+    .podium-card.silver { border-color: rgba(201, 207, 221, 0.5); }
+    .podium-card.bronze { border-color: rgba(205, 140, 94, 0.5); }
+    .podium-rank {
+        font-size: 32px;
+        line-height: 1;
+        margin-bottom: 6px;
+    }
+    .podium-name {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        word-break: break-word;
+    }
+    .podium-profit {
+        font-size: 24px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: -0.02em;
+    }
+    .podium-profit.pos { color: #10D07E; }
+    .podium-profit.neg { color: #FF5D5D; }
+    .podium-meta {
+        font-size: 11px;
+        color: #7C8AA5;
+        margin-top: 6px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Insights et compare : cards visuelles */
+    .insight-card {
+        background: rgba(20, 27, 45, 0.6);
+        border: 1px solid rgba(35, 45, 72, 0.6);
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 8px;
+    }
+    .insight-label {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        color: #7C8AA5;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .insight-value {
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    .insight-value strong { color: #F4C430; }
+
+    /* Comparateur bookmakers en tableau compact */
+    .compare-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .compare-table th {
+        text-align: left;
+        padding: 8px;
+        color: #7C8AA5;
+        font-weight: 500;
+        font-size: 10px;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        font-family: monospace;
+        border-bottom: 1px solid #232D48;
+    }
+    .compare-table td {
+        padding: 10px 8px;
+        border-bottom: 1px solid rgba(35, 45, 72, 0.4);
+    }
+    .compare-table tr.current td {
+        background: rgba(244, 196, 48, 0.08);
+    }
+    .compare-table tr.current td:first-child::before {
+        content: '▸ ';
+        color: #F4C430;
+    }
+    .compare-table td.num {
+        font-family: 'JetBrains Mono', monospace;
+        text-align: right;
+    }
+    .compare-table .pos { color: #10D07E; }
+    .compare-table .neg { color: #FF5D5D; }
+
+    /* Sections */
+    .section-title {
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        color: #7C8AA5;
+        text-transform: uppercase;
+        margin: 32px 0 12px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Tableau du classement */
+    [data-testid="stDataFrame"] {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    /* Sidebar plus discret */
+    [data-testid="stSidebar"] {
+        background: #0F1524;
+    }
+
+    /* Cache Streamlit menu et footer sur mobile pour gagner de la place */
+    @media (max-width: 640px) {
+        .block-container { padding-left: 0.8rem !important; padding-right: 0.8rem !important; }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Header ───────────────────────────────────────────────────────────────────
-st.markdown(f'<span class="badge">Coupe du Monde 2026 · {LEAGUE_NAME}</span>', unsafe_allow_html=True)
-st.title("Classement au portefeuille")
-st.caption(
-    "Combien chaque joueur aurait gagné en pariant ses pronostics MPP pour de vrai. "
-)
-# ─── Sidebar (uniquement les 2 leviers live) ──────────────────────────────────
+# ─── Hero ─────────────────────────────────────────────────────────────────────
+st.markdown(f"""
+<div>
+    <div class="hero-eyebrow">Coupe du Monde 2026 · {LEAGUE_NAME}</div>
+    <h1 class="hero-title">Mon Petit Portefeuille</h1>
+    <p class="hero-subtitle">Et si tu avais parié pour de vrai tes pronos MPP ?</p>
+    <p class="hero-caption">Basé sur <a href="https://mes-profits-pronos.vercel.app" style="color:#7C8AA5">mes-profits-pronos.vercel.app</a> d'Arthur Labbaye</p>
+</div>
+""", unsafe_allow_html=True)
+
+# ─── Sidebar : leviers live ───────────────────────────────────────────────────
 mpp_data = {u: {"firstname": fn, "mpp_rank": r, "mpp_points": p} for u, fn, r, p in LEAGUE}
 
 with st.sidebar:
@@ -62,12 +230,34 @@ with st.sidebar:
         "Bookmaker",
         options=BOOKMAKERS,
         format_func=lambda x: BOOKMAKER_LABELS[x],
-        index=0,
+        index=1,  # Betclic par défaut
     )
     stake = st.slider("Mise par pari (€)", min_value=1, max_value=100, value=10, step=1)
 
     st.divider()
     st.caption(f"Données figées du {GENERATED_AT}")
+    st.caption(f"{len(LEAGUE)} joueurs · {len(BOOKMAKERS)} bookmakers")
+
+# ─── Params inline pour mobile (accès rapide sans sidebar) ────────────────────
+with st.container():
+    col_bm, col_stake = st.columns([1, 2])
+    with col_bm:
+        bookmaker_top = st.selectbox(
+            "Bookmaker",
+            options=BOOKMAKERS,
+            format_func=lambda x: BOOKMAKER_LABELS[x],
+            index=BOOKMAKERS.index(bookmaker),
+            key="bm_top",
+            label_visibility="visible",
+        )
+    with col_stake:
+        stake_top = st.slider(
+            "Mise (€)",
+            min_value=1, max_value=100, value=stake, step=1,
+            key="stake_top",
+        )
+    bookmaker = bookmaker_top
+    stake = stake_top
 
 # ─── Construction des lignes ──────────────────────────────────────────────────
 current_data = DATA[bookmaker]
@@ -79,16 +269,13 @@ for u, d in current_data.items():
         "prenom": info.get("firstname", ""),
         "mpp_rank": info.get("mpp_rank"),
         "mpp_points": info.get("mpp_points"),
-        # Linéaire en la mise
         "profit": d["profit"] * stake,
         "total_stake": d["totalStake"] * stake,
-        # Indépendant de la mise
         "roi": d["roi"],
         "wins": d["wins"],
         "bets": d["bets"],
         "win_rate": d["winRate"],
         "avg_odd": d["averageOdd"],
-        "best_streak": d.get("bestWinStreak"),
     })
 
 rows.sort(key=lambda r: r["profit"], reverse=True)
@@ -106,47 +293,132 @@ positives = int((df["profit"] > 0).sum())
 total_stakes = df["total_stake"].sum()
 league_roi = (total_profit / total_stakes * 100) if total_stakes > 0 else 0
 
-st.subheader(f"📊 {BOOKMAKER_LABELS[bookmaker]}  ·  mise {stake}€")
+st.markdown('<div class="section-title">Chiffres de la ligue</div>', unsafe_allow_html=True)
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Joueurs", len(df))
 c2.metric(
-    "Cumul ligue",
-    f"{'+' if total_profit >= 0 else ''}{total_profit:,.2f}€".replace(",", " "),
-    delta=f"ROI ligue {league_roi:+.1f}%",
+    "Cumul",
+    f"{'+' if total_profit >= 0 else ''}{total_profit:,.0f}€".replace(",", " "),
+    delta=f"{league_roi:+.1f}%",
     delta_color="normal" if league_roi >= 0 else "inverse",
 )
-c3.metric("ROI moyen joueur", f"{avg_roi:+.1f}%")
-c4.metric("Rentables", f"{positives} / {len(df)}")
+c3.metric("ROI moyen", f"{avg_roi:+.1f}%")
+c4.metric("Rentables", f"{positives}/{len(df)}")
+
+# ─── Insights + Comparaison bookmakers (2 colonnes sur desktop, stackées mobile) ──
+has_mpp = df["mpp_rank"].notna().any()
+best = df.iloc[0]
+worst = df.iloc[-1]
+climber = faller = None
+if has_mpp and "delta" in df.columns:
+    deltas = df.dropna(subset=["delta"])
+    if not deltas.empty:
+        climber = deltas.loc[deltas["delta"].idxmax()]
+        faller = deltas.loc[deltas["delta"].idxmin()]
+
+col_insight, col_compare = st.columns([1, 1])
+
+with col_insight:
+    st.markdown('<div class="section-title">Insights</div>', unsafe_allow_html=True)
+    insights_html = f"""
+    <div class="insight-card">
+        <div class="insight-label">💰 Meilleur profit</div>
+        <div class="insight-value"><strong>{best['pseudo']}</strong> · {'+' if best['profit']>=0 else ''}{best['profit']:.2f}€
+            <span style="color:#7C8AA5"> · cote moy. {best['avg_odd']:.2f}</span></div>
+    </div>
+    <div class="insight-card">
+        <div class="insight-label">📉 Pire résultat</div>
+        <div class="insight-value"><strong>{worst['pseudo']}</strong> · {'+' if worst['profit']>=0 else ''}{worst['profit']:.2f}€</div>
+    </div>
+    """
+    if climber is not None and climber["delta"] > 0:
+        insights_html += f"""
+        <div class="insight-card">
+            <div class="insight-label">🎯 Meilleur choix de cotes</div>
+            <div class="insight-value"><strong>{climber['pseudo']}</strong> gagne <strong>{int(climber['delta'])} places</strong>
+                <span style="color:#7C8AA5"> vs son rang MPP</span></div>
+        </div>
+        """
+    if faller is not None and faller["delta"] < 0:
+        insights_html += f"""
+        <div class="insight-card">
+            <div class="insight-label">🐑 Cocheur de favoris</div>
+            <div class="insight-value"><strong>{faller['pseudo']}</strong> perd <strong>{int(abs(faller['delta']))} places</strong>
+                <span style="color:#7C8AA5"> (bons pronos, cotes pourries)</span></div>
+        </div>
+        """
+    st.markdown(insights_html, unsafe_allow_html=True)
+
+with col_compare:
+    st.markdown('<div class="section-title">Comparaison bookmakers</div>', unsafe_allow_html=True)
+    compare_rows_html = ""
+    for bm in BOOKMAKERS:
+        bm_data = DATA[bm]
+        if not bm_data:
+            continue
+        total = sum(d["profit"] * stake for d in bm_data.values())
+        pos = sum(1 for d in bm_data.values() if d["profit"] > 0)
+        current_class = "current" if bm == bookmaker else ""
+        pn_class = "pos" if total >= 0 else "neg"
+        sign = "+" if total >= 0 else ""
+        compare_rows_html += f"""
+        <tr class="{current_class}">
+            <td>{BOOKMAKER_LABELS[bm]}</td>
+            <td class="num {pn_class}">{sign}{total:.0f}€</td>
+            <td class="num" style="color:#7C8AA5">{pos}/{len(bm_data)}</td>
+        </tr>
+        """
+    st.markdown(f"""
+    <div class="insight-card" style="padding: 8px 14px;">
+        <table class="compare-table">
+            <thead>
+                <tr>
+                    <th>Bookmaker</th>
+                    <th style="text-align:right">Cumul</th>
+                    <th style="text-align:right">Rentables</th>
+                </tr>
+            </thead>
+            <tbody>{compare_rows_html}</tbody>
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ─── Podium ───────────────────────────────────────────────────────────────────
-st.subheader("🏆 Podium")
-p1, p2, p3 = st.columns(3)
-for col, (_, row), medal in zip((p1, p2, p3), df.head(3).iterrows(), ["🥇", "🥈", "🥉"]):
-    name = row["pseudo"] + (f"  ·  {row['prenom']}" if row["prenom"] else "")
-    col.metric(
-        label=f"{medal}  {name}",
-        value=f"{'+' if row['profit']>=0 else ''}{row['profit']:.2f}€",
-        delta=f"ROI {row['roi']:+.1f}%  ·  {row['wins']}/{row['bets']}",
-        delta_color="off",
-    )
+st.markdown('<div class="section-title">Podium</div>', unsafe_allow_html=True)
+
+top3 = df.head(3)
+p_cols = st.columns(3)
+medals = ["🥇", "🥈", "🥉"]
+classes = ["gold", "silver", "bronze"]
+for col, (_, row), medal, cls in zip(p_cols, top3.iterrows(), medals, classes):
+    with col:
+        name = row["pseudo"] + (f"<br><span style='font-size:11px;color:#7C8AA5;font-weight:400'>{row['prenom']}</span>" if row["prenom"] else "")
+        profit_class = "pos" if row['profit'] >= 0 else "neg"
+        sign = "+" if row['profit'] >= 0 else ""
+        st.markdown(f"""
+        <div class="podium-card {cls}">
+            <div class="podium-rank">{medal}</div>
+            <div class="podium-name">{name}</div>
+            <div class="podium-profit {profit_class}">{sign}{row['profit']:.2f}€</div>
+            <div class="podium-meta">ROI {row['roi']:+.1f}% · {row['wins']}/{row['bets']}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ─── Tableau complet ──────────────────────────────────────────────────────────
-st.subheader("Classement complet")
+st.markdown('<div class="section-title">Classement complet</div>', unsafe_allow_html=True)
 
 display_df = df.copy()
 display_df["#"] = display_df["money_rank"]
 display_df["Joueur"] = display_df.apply(
     lambda r: f"{r['pseudo']}" + (f" · {r['prenom']}" if r['prenom'] else ""), axis=1)
-display_df["Profit (€)"] = display_df["profit"].apply(lambda x: f"{'+' if x>=0 else ''}{x:.2f}")
-display_df["ROI (%)"] = display_df["roi"].apply(lambda x: f"{x:+.1f}")
+display_df["Profit"] = display_df["profit"].apply(lambda x: f"{'+' if x>=0 else ''}{x:.2f}€")
+display_df["ROI"] = display_df["roi"].apply(lambda x: f"{x:+.1f}%")
 display_df["Bilan"] = display_df.apply(lambda r: f"{r['wins']}/{r['bets']}", axis=1)
-display_df["Taux (%)"] = display_df["win_rate"].apply(lambda x: f"{x:.0f}")
-display_df["Cote moy."] = display_df["avg_odd"].apply(lambda x: f"{x:.2f}")
+display_df["Cote"] = display_df["avg_odd"].apply(lambda x: f"{x:.2f}")
 
-has_mpp = "mpp_rank" in display_df.columns and display_df["mpp_rank"].notna().any()
 if has_mpp:
-    display_df["Rang MPP"] = display_df["mpp_rank"].apply(
+    display_df["MPP"] = display_df["mpp_rank"].apply(
         lambda x: f"#{int(x)}" if pd.notna(x) else "—")
     display_df["Δ"] = display_df.apply(
         lambda r: ("↑" + str(int(r["delta"]))) if pd.notna(r.get("delta")) and r["delta"] > 0
@@ -154,61 +426,15 @@ if has_mpp:
                  else "="),
         axis=1,
     )
-    cols = ["#", "Joueur", "Profit (€)", "ROI (%)", "Bilan", "Taux (%)", "Cote moy.", "Rang MPP", "Δ"]
+    cols = ["#", "Joueur", "Profit", "ROI", "Bilan", "Cote", "MPP", "Δ"]
 else:
-    cols = ["#", "Joueur", "Profit (€)", "ROI (%)", "Bilan", "Taux (%)", "Cote moy."]
+    cols = ["#", "Joueur", "Profit", "ROI", "Bilan", "Cote"]
 
 st.dataframe(
     display_df[cols].set_index("#"),
     use_container_width=True,
-    height=(len(display_df) + 1) * 35 + 3,
+    height=(len(display_df) + 1) * 36 + 3,
 )
-
-# ─── Insights ─────────────────────────────────────────────────────────────────
-with st.expander("💡 Insights", expanded=True):
-    best = df.iloc[0]
-    worst = df.iloc[-1]
-    st.markdown(
-        f"**Meilleur profit** : `{best['pseudo']}` avec **{best['profit']:+.2f}€** "
-        f"(cote moy. {best['avg_odd']:.2f}, {best['bets']} paris)"
-    )
-    st.markdown(
-        f"**Pire résultat** : `{worst['pseudo']}` avec **{worst['profit']:+.2f}€**"
-    )
-
-    if has_mpp and "delta" in df.columns and df["delta"].notna().any():
-        deltas = df.dropna(subset=["delta"])
-        climber = deltas.loc[deltas["delta"].idxmax()]
-        faller = deltas.loc[deltas["delta"].idxmin()]
-        if climber["delta"] > 0:
-            st.markdown(
-                f"**Meilleur choix de cotes** : `{climber['pseudo']}` gagne "
-                f"**{int(climber['delta'])} places** vs son rang MPP (parie sur des paris mieux payés)"
-            )
-        if faller["delta"] < 0:
-            st.markdown(
-                f"**Cocheur de favoris** : `{faller['pseudo']}` perd "
-                f"**{int(abs(faller['delta']))} places** vs son rang MPP (bons pronos, cotes pourries)"
-            )
-
-# ─── Comparaison bookmakers ───────────────────────────────────────────────────
-with st.expander("📈 Comparer les 4 bookmakers"):
-    comp_rows = []
-    for bm in BOOKMAKERS:
-        bm_data = DATA[bm]
-        if not bm_data:
-            continue
-        total = sum(d["profit"] * stake for d in bm_data.values())
-        avg_r = sum(d["roi"] for d in bm_data.values()) / len(bm_data)
-        pos = sum(1 for d in bm_data.values() if d["profit"] > 0)
-        comp_rows.append({
-            "Bookmaker": BOOKMAKER_LABELS[bm],
-            "Cumul ligue (€)": f"{'+' if total>=0 else ''}{total:.2f}",
-            "ROI moyen (%)": f"{avg_r:+.1f}",
-            "Rentables": f"{pos} / {len(bm_data)}",
-        })
-    st.dataframe(pd.DataFrame(comp_rows).set_index("Bookmaker"),
-                 use_container_width=True)
 
 # ─── Export CSV ───────────────────────────────────────────────────────────────
 csv_buf = io.StringIO()
@@ -223,10 +449,12 @@ st.download_button(
     data=csv_buf.getvalue(),
     file_name=f"classement-{bookmaker}-{stake}eur.csv",
     mime="text/csv",
+    use_container_width=True,
 )
 
 # ─── Footer ───────────────────────────────────────────────────────────────────
-st.divider()
+st.markdown("<br>", unsafe_allow_html=True)
 st.caption(
-    f"Cotes historiques via OddsPortal. Données figées du {GENERATED_AT}."
+    f"Cotes historiques via OddsPortal (Betclic, Unibet, Winamax). "
+    f"Données figées du {GENERATED_AT}."
 )
