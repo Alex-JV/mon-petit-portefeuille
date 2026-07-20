@@ -199,10 +199,9 @@ st.markdown("""
         overflow: hidden;
     }
 
-    /* Sidebar plus discret */
-    [data-testid="stSidebar"] {
-        background: #0F1524;
-    }
+    /* Sidebar totalement masquée */
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
 
     /* Cache Streamlit menu et footer sur mobile pour gagner de la place */
     @media (max-width: 640px) {
@@ -212,51 +211,30 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── Hero ─────────────────────────────────────────────────────────────────────
-st.markdown(f"""
-<div>
-    <div class="hero-eyebrow">Coupe du Monde 2026 · {LEAGUE_NAME}</div>
-    <h1 class="hero-title">Mon Petit Portefeuille</h1>
-    <p class="hero-subtitle">Combien de thune t'aurais fait si tu avais parié pour de vrai tes pronos MPP ?</p>
-</div>
-""", unsafe_allow_html=True)
+hero_html = (
+    '<div>'
+    f'<div class="hero-eyebrow">Coupe du Monde 2026 · {LEAGUE_NAME}</div>'
+    '<h1 class="hero-title">Mon Petit Portefeuille</h1>'
+    '<p class="hero-subtitle">Et si tu avais parié pour de vrai tes pronos MPP ?</p>'
+    '<p class="hero-caption">Basé sur <a href="https://mes-profits-pronos.vercel.app" style="color:#7C8AA5">mes-profits-pronos.vercel.app</a> d\'Arthur Labbaye</p>'
+    '</div>'
+)
+st.markdown(hero_html, unsafe_allow_html=True)
 
 # ─── Sidebar : leviers live ───────────────────────────────────────────────────
 mpp_data = {u: {"firstname": fn, "mpp_rank": r, "mpp_points": p} for u, fn, r, p in LEAGUE}
 
-with st.sidebar:
-    st.header("⚙️ Paramètres")
+# ─── Paramètres inline (bookmaker + mise) ─────────────────────────────────────
+col_bm, col_stake = st.columns([1, 2])
+with col_bm:
     bookmaker = st.selectbox(
         "Bookmaker",
         options=BOOKMAKERS,
         format_func=lambda x: BOOKMAKER_LABELS[x],
         index=1,  # Betclic par défaut
     )
+with col_stake:
     stake = st.slider("Mise par pari (€)", min_value=1, max_value=100, value=10, step=1)
-
-    st.divider()
-    st.caption(f"Données figées du {GENERATED_AT}")
-    st.caption(f"{len(LEAGUE)} joueurs · {len(BOOKMAKERS)} bookmakers")
-
-# ─── Params inline pour mobile (accès rapide sans sidebar) ────────────────────
-with st.container():
-    col_bm, col_stake = st.columns([1, 2])
-    with col_bm:
-        bookmaker_top = st.selectbox(
-            "Bookmaker",
-            options=BOOKMAKERS,
-            format_func=lambda x: BOOKMAKER_LABELS[x],
-            index=BOOKMAKERS.index(bookmaker),
-            key="bm_top",
-            label_visibility="visible",
-        )
-    with col_stake:
-        stake_top = st.slider(
-            "Mise (€)",
-            min_value=1, max_value=100, value=stake, step=1,
-            key="stake_top",
-        )
-    bookmaker = bookmaker_top
-    stake = stake_top
 
 # ─── Construction des lignes ──────────────────────────────────────────────────
 current_data = DATA[bookmaker]
@@ -320,38 +298,37 @@ col_insight, col_compare = st.columns([1, 1])
 
 with col_insight:
     st.markdown('<div class="section-title">Insights</div>', unsafe_allow_html=True)
-    insights_html = f"""
-    <div class="insight-card">
-        <div class="insight-label">💰 Meilleur profit</div>
-        <div class="insight-value"><strong>{best['pseudo']}</strong> · {'+' if best['profit']>=0 else ''}{best['profit']:.2f}€
-            <span style="color:#7C8AA5"> · cote moy. {best['avg_odd']:.2f}</span></div>
-    </div>
-    <div class="insight-card">
-        <div class="insight-label">📉 Pire résultat</div>
-        <div class="insight-value"><strong>{worst['pseudo']}</strong> · {'+' if worst['profit']>=0 else ''}{worst['profit']:.2f}€</div>
-    </div>
-    """
+    parts = []
+    parts.append(
+        f'<div class="insight-card"><div class="insight-label">💰 Meilleur profit</div>'
+        f'<div class="insight-value"><strong>{best["pseudo"]}</strong> · '
+        f'{"+" if best["profit"]>=0 else ""}{best["profit"]:.2f}€ '
+        f'<span style="color:#7C8AA5"> · cote moy. {best["avg_odd"]:.2f}</span></div></div>'
+    )
+    parts.append(
+        f'<div class="insight-card"><div class="insight-label">📉 Pire résultat</div>'
+        f'<div class="insight-value"><strong>{worst["pseudo"]}</strong> · '
+        f'{"+" if worst["profit"]>=0 else ""}{worst["profit"]:.2f}€</div></div>'
+    )
     if climber is not None and climber["delta"] > 0:
-        insights_html += f"""
-        <div class="insight-card">
-            <div class="insight-label">🎯 Meilleur choix de cotes</div>
-            <div class="insight-value"><strong>{climber['pseudo']}</strong> gagne <strong>{int(climber['delta'])} places</strong>
-                <span style="color:#7C8AA5"> vs son rang MPP</span></div>
-        </div>
-        """
+        parts.append(
+            f'<div class="insight-card"><div class="insight-label">🎯 Meilleur choix de cotes</div>'
+            f'<div class="insight-value"><strong>{climber["pseudo"]}</strong> gagne '
+            f'<strong>{int(climber["delta"])} places</strong>'
+            f'<span style="color:#7C8AA5"> vs son rang MPP</span></div></div>'
+        )
     if faller is not None and faller["delta"] < 0:
-        insights_html += f"""
-        <div class="insight-card">
-            <div class="insight-label">🐑 Cocheur de favoris</div>
-            <div class="insight-value"><strong>{faller['pseudo']}</strong> perd <strong>{int(abs(faller['delta']))} places</strong>
-                <span style="color:#7C8AA5"> (bons pronos, cotes pourries)</span></div>
-        </div>
-        """
-    st.markdown(insights_html, unsafe_allow_html=True)
+        parts.append(
+            f'<div class="insight-card"><div class="insight-label">🐑 Cocheur de favoris</div>'
+            f'<div class="insight-value"><strong>{faller["pseudo"]}</strong> perd '
+            f'<strong>{int(abs(faller["delta"]))} places</strong>'
+            f'<span style="color:#7C8AA5"> (bons pronos, cotes pourries)</span></div></div>'
+        )
+    st.markdown("".join(parts), unsafe_allow_html=True)
 
 with col_compare:
     st.markdown('<div class="section-title">Comparaison bookmakers</div>', unsafe_allow_html=True)
-    compare_rows_html = ""
+    body_parts = []
     for bm in BOOKMAKERS:
         bm_data = DATA[bm]
         if not bm_data:
@@ -361,27 +338,20 @@ with col_compare:
         current_class = "current" if bm == bookmaker else ""
         pn_class = "pos" if total >= 0 else "neg"
         sign = "+" if total >= 0 else ""
-        compare_rows_html += f"""
-        <tr class="{current_class}">
-            <td>{BOOKMAKER_LABELS[bm]}</td>
-            <td class="num {pn_class}">{sign}{total:.0f}€</td>
-            <td class="num" style="color:#7C8AA5">{pos}/{len(bm_data)}</td>
-        </tr>
-        """
-    st.markdown(f"""
-    <div class="insight-card" style="padding: 8px 14px;">
-        <table class="compare-table">
-            <thead>
-                <tr>
-                    <th>Bookmaker</th>
-                    <th style="text-align:right">Cumul</th>
-                    <th style="text-align:right">Rentables</th>
-                </tr>
-            </thead>
-            <tbody>{compare_rows_html}</tbody>
-        </table>
-    </div>
-    """, unsafe_allow_html=True)
+        body_parts.append(
+            f'<tr class="{current_class}"><td>{BOOKMAKER_LABELS[bm]}</td>'
+            f'<td class="num {pn_class}">{sign}{total:.0f}€</td>'
+            f'<td class="num" style="color:#7C8AA5">{pos}/{len(bm_data)}</td></tr>'
+        )
+    compare_html = (
+        '<div class="insight-card" style="padding: 8px 14px;">'
+        '<table class="compare-table">'
+        '<thead><tr><th>Bookmaker</th>'
+        '<th style="text-align:right">Cumul</th>'
+        '<th style="text-align:right">Rentables</th></tr></thead>'
+        '<tbody>' + "".join(body_parts) + '</tbody></table></div>'
+    )
+    st.markdown(compare_html, unsafe_allow_html=True)
 
 # ─── Podium ───────────────────────────────────────────────────────────────────
 st.markdown('<div class="section-title">Podium</div>', unsafe_allow_html=True)
@@ -395,14 +365,15 @@ for col, (_, row), medal, cls in zip(p_cols, top3.iterrows(), medals, classes):
         name = row["pseudo"] + (f"<br><span style='font-size:11px;color:#7C8AA5;font-weight:400'>{row['prenom']}</span>" if row["prenom"] else "")
         profit_class = "pos" if row['profit'] >= 0 else "neg"
         sign = "+" if row['profit'] >= 0 else ""
-        st.markdown(f"""
-        <div class="podium-card {cls}">
-            <div class="podium-rank">{medal}</div>
-            <div class="podium-name">{name}</div>
-            <div class="podium-profit {profit_class}">{sign}{row['profit']:.2f}€</div>
-            <div class="podium-meta">ROI {row['roi']:+.1f}% · {row['wins']}/{row['bets']}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        podium_html = (
+            f'<div class="podium-card {cls}">'
+            f'<div class="podium-rank">{medal}</div>'
+            f'<div class="podium-name">{name}</div>'
+            f'<div class="podium-profit {profit_class}">{sign}{row["profit"]:.2f}€</div>'
+            f'<div class="podium-meta">ROI {row["roi"]:+.1f}% · {row["wins"]}/{row["bets"]}</div>'
+            f'</div>'
+        )
+        st.markdown(podium_html, unsafe_allow_html=True)
 
 # ─── Tableau complet ──────────────────────────────────────────────────────────
 st.markdown('<div class="section-title">Classement complet</div>', unsafe_allow_html=True)
