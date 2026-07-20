@@ -52,8 +52,6 @@ st.markdown(f'<span class="badge">Coupe du Monde 2026 · {LEAGUE_NAME}</span>', 
 st.title("Classement au portefeuille")
 st.caption(
     "Combien chaque joueur aurait gagné en pariant ses pronostics MPP pour de vrai. "
-    "Données via [mes-profits-pronos.vercel.app](https://mes-profits-pronos.vercel.app) d'Arthur Labbaye."
-)
 
 # ─── Sidebar (uniquement les 2 leviers live) ──────────────────────────────────
 mpp_data = {u: {"firstname": fn, "mpp_rank": r, "mpp_points": p} for u, fn, r, p in LEAGUE}
@@ -230,6 +228,5 @@ st.download_button(
 # ─── Footer ───────────────────────────────────────────────────────────────────
 st.divider()
 st.caption(
-    f"Basé sur [Mes Profits Pronos](https://mes-profits-pronos.vercel.app) d'Arthur Labbaye. "
     f"Cotes historiques via OddsPortal. Données figées du {GENERATED_AT}."
 )
